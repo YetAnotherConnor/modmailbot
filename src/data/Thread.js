@@ -343,9 +343,9 @@ class Thread {
         const file = await attachments.attachmentToDiscordFileObject(attachment);
         attachmentFiles.push(file);
         smallAttachmentLinks.push(savedAttachment.url);
+      } else {
+        attachmentLinks.push(savedAttachment.url);
       }
-
-      attachmentLinks.push(savedAttachment.url);
     }
 
     // Handle special embeds (listening party invites etc.)
