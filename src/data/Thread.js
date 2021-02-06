@@ -343,9 +343,9 @@ class Thread {
         const file = await attachments.attachmentToDiscordFileObject(attachment);
         attachmentFiles.push(file);
         smallAttachmentLinks.push(savedAttachment.url);
+      } else {
+        attachmentLinks.push(savedAttachment.url);
       }
-
-      attachmentLinks.push(savedAttachment.url);
     }
 
     // Handle special embeds (listening party invites etc.)
@@ -796,6 +796,36 @@ class Thread {
    * @returns {Promise<void>}
    */
   async editStaffReply(moderator, threadMessage, newText, opts = {}) {
+    if (config.allowSnippets && config.allowInlineSnippets) {
+      // Replace {{snippet}} with the corresponding snippet
+      // The beginning and end of the variable - {{ and }} - can be changed with the config options
+      // config.inlineSnippetStart and config.inlineSnippetEnd
+      const allSnippets = await snippets.all();
+      const snippetMap = allSnippets.reduce((_map, snippet) => {
+        _map[snippet.trigger.toLowerCase()] = snippet;
+        return _map;
+      }, {});
+
+      let unknownSnippets = new Set();
+      newText = newText.replace(
+        new RegExp(`${config.inlineSnippetStart}(\\s*\\S+?\\s*)${config.inlineSnippetEnd}`, "ig"),
+        (orig, trigger) => {
+          trigger = trigger.trim();
+          const snippet = snippetMap[trigger.toLowerCase()];
+          if (snippet == null) {
+            unknownSnippets.add(trigger);
+          }
+
+          return snippet != null ? snippet.body : orig;
+        }
+      );
+
+      if (config.errorOnUnknownInlineSnippet && unknownSnippets.size > 0) {
+        this.postSystemMessage(`The following snippets used in the reply do not exist:\n${Array.from(unknownSnippets).join(", ")}`);
+        return false;
+      }
+    }
+    
     const newThreadMessage = new ThreadMessage({
       ...threadMessage.getSQLProps(),
       body: newText,
